@@ -1,7 +1,9 @@
 
 # SQL注入
 - [SQL注入](#sql注入)
-  - [SQL注入成因？](#sql注入成因)
+  - [SQL注入成因？ **](#sql注入成因-)
+  - [SQL注入防护方法？ **](#sql注入防护方法-)
+  - [SQL注入如何判断](#sql注入如何判断)
   - [SQL注入主要类型？](#sql注入主要类型)
   - [联合查询的运用场景？](#联合查询的运用场景)
   - [报错注入的函数有哪些？](#报错注入的函数有哪些)
@@ -13,7 +15,7 @@
   - [二阶注入？](#二阶注入)
   - [sql注入写文件用的函数？](#sql注入写文件用的函数)
   - [sql注入写shell的条件？](#sql注入写shell的条件)
-  - [SQL注入防护方法？](#sql注入防护方法)
+  - [不同数据库获取数据信息的过程](#不同数据库获取数据信息的过程)
 - [XSS](#xss)
   - [XSS攻击如何产生？](#xss攻击如何产生)
   - [主要类型以及原理？](#主要类型以及原理)
@@ -48,7 +50,11 @@
   - [防御](#防御)
 
 
-## SQL注入成因？
+## SQL注入成因？ **
+
+根本原因：未经检查或未经充分检查的用户输入数据，意外变成了代码被执行。
+
+根本上防止：避免数据变成代码被执行，分清数据和代码的界限
 
 一个是在**动态构造SQL语句**时，产生一些比较危险的语句，在执行SQL之后，获取了多余的数据；
 另一个是**数据库的配置**，一个SQL查询应该只能查询到数据库允许被查询到的数据。
@@ -79,6 +85,76 @@
 - 对用户端输入过滤不严格
 - 可以带入数据库中进行查询操作
 
+## SQL注入防护方法？ ** 
+从不同角度切入：
+
+**1. 传入的字符**
+   - 对输入的特殊字符(如, () * & % # 等等)进行Escape转义或过滤、替换、删除等处理
+     - escape() 会对字符串中除了ASCII字母、数字和特定符号外，进行转义编码，编码成字符的16进行格式值，当该值小于等于0xFF时,用一个2位转移序列: %xx 表示. 大于的话则使用4位序列:%uxxxx 表示。
+   - 输入内容的数据类型必须确定，要么数字型，要么字符型 
+  
+**2. 查询操作本身**
+   - 使用安全的API，即所有查询语句使用标准化的数据库查询语句API接口，设定语句的参数进行过滤一些非法的字符，防止用户输入恶意字符传入数据库中执行sql语句。(如果直接将获取的参数传入预编译语句中，也有可能产生**二次注入**，即从数据库中查询出**恶意数据**)
+   >**数据库预编译：**
+   >
+   > (1) 数据库SQL语句编译特性：
+    **数据库接受到sql语句之后，需要词法和语义解析，优化sql语句，制定执行计划**。这需要花费一些时间。但是很多情况，我们的一条sql语句可能会反复执行，或者每次执行的时候只有个别的值不同（比如query的where子句值不同，update的set子句值不同,insert的values值不同）。
+   > 
+   >(2) 减少编译的方法
+    如果每次都需要经过上面的词法语义解析、语句优化、制定执行计划等，则效率就明显不行了。为了解决上面的问题，于是就有了预编译，**预编译语句就是将这类语句中的值用占位符替代，可以视为将sql语句模板化或者说参数化**。**一次编译、多次运行，省去了解析优化等过程**。
+   > 
+   >(3) 缓存预编译
+    预编译语句被DB的编译器编译后的执行代码被缓存下来,那么下次调用时只要是相同的预编译语句就不需要编译,只要将参数直接传入编译过的语句执行代码中(相当于一个涵数)就会得到执行。
+    并不是所以预编译语句都一定会被缓存,数据库本身会用一种策略（内部机制）。
+   > 
+   >(4) 预编译的实现方法
+    预编译是通过PreparedStatement和占位符来实现的。
+   >
+   >mysql:
+   >
+   >$ mysqli=new mysqli();
+   >
+   >$ mysqli->prepare($sql);
+
+  <img src="images/preparedStatement.png" width="70%">
+  
+  <img src="images/preparedStatement2.png" width="70%">
+  
+**3. 数据库本身**
+   - 对用户的操作权限进行安全限制，普通用户只给普通权限，管理员后台的操作权限要放开，尽量减少对数据库的恶意攻击。
+   - 执行的错误信息不要返回到客户端显示，（如字符错误，数据库的报错信息）尽量减少泄露信息
+
+## SQL注入如何判断
+  单条件查询：select * from table where id=?
+  多条件查询：select * from table where id1=? and id2=?
+
+  1.首先需要判断字符型还是整型：
+  对于一个可能的注入点：
+  - ?id=1   正常显示
+  - 模式1：
+    - 基于该种模式还有很多种变型，核心思想还是（字符型闭合已有的SQL语句，）增加一些附加条件来判断条件是否执行，若执行了说明存在sql注入。
+    - 闭合已有SQL语句的方式：' " ) ') 
+    - ?id=1 and 1=1   显示正常
+    - ?id=1 and 1=2   显示异常  --》整型注入
+    - ?id=1' and '1'='1   显示正常
+    - ?id=1' and '1'='2   显示异常 --》字符型注入
+  - 模式2：
+    - 后端的waf过滤了关键字and or--》使用连接符
+    - 与
+      - and 
+      - &&
+      - &
+    - 或
+      - or
+      - ||
+      - |
+    - 异或
+      - ^
+
+  2.判断出存在注入后，需要确定**注入类型**，再继续进一步的操作。
+
+
+
 ## SQL注入主要类型？
 
 - 按数据类型分类
@@ -107,12 +183,12 @@
 
 ## 报错注入的函数有哪些？
 
-- floor函数
+- **floor函数**
 select count(*),concat(/*payload*/,floor(rand(0)*2)) as x from user group by x;
 
     floor()报错注入的原因是group by在向临时表插入数据时，由于rand()多次计算导致插入临时表时主键重复，从而报错，又因为报错前concat()中的SQL语句或函数被执行，所以该语句报错且被抛出的主键是SQL语句或函数执行后的结果。
 
-- extractvalue报错
+- **extractvalue报错**
 
     它接收两个字符串参数，第一个参数可以传入目标xml文档，第二个参数是用Xpath路径表示法表示的查找路径。这里如果Xpath格式语法书写错误的话，就会报错。
     可以利用concat函数将想要获得的数据库内容拼接到第二个参数中，报错时作为内容输出
@@ -120,7 +196,7 @@ select count(*),concat(/*payload*/,floor(rand(0)*2)) as x from user group by x;
     eg payload:
     concat(0x7e,(select @@version),0x7e) 
 
-- updatexml报错
+- **updatexml报错**
   
     UpdateXML(xml_target, xpath_expr, new_xml)xml_target：需要操作的xml片段
     
@@ -196,7 +272,7 @@ mysqli_multi_query用于执行一个SQL语句或多个由分号分隔的SQL语�
     防御该漏洞：将mysql_query设置为binary
 
 ## HTTP头部注入可能参数点？原因？
-原因：
+**原因：**
 
 用户提交的参数未做过滤就直接输出到HTTP响应头中，则可利用该漏洞来注入到HTTP响应头中。
 
@@ -222,25 +298,25 @@ mysqli_multi_query用于执行一个SQL语句或多个由分号分隔的SQL语�
 ## 二阶注入？
 一阶注入：（普通的SQL注入）发生在一个HTTP请求中
 
-攻击过程：	
+**攻击过程：**	
 1. 攻击者在HTTP请求中提交恶意sql语句
 2. 应用处理恶意输入，使用恶意输入动态构建SQL语句-
 3. 如果攻击实现，在响应中向攻击者返回结构
 
-
-二阶注入：
+**二阶注入：**
 1. 攻击者在一个HTTP请求中提交恶意输入
 2. 用于将恶意输入保存在数据库中
 3. 攻击者提交第二个HTTP请求
 4. 为处理第二个HTTP请求，应用检索存储在后端数据库中的恶意输入，动态构建SQL语句
 5. 如果攻击实现，在第二个请求的响应中向攻击者返回结果
 
-
-例子？
-
-原因：
+**原因：**
 - 对存入的数据没有进行检查
 - 对从数据库中取出来的数据信任，直接使用
+
+**举例：**
+
+
 
 ## sql注入写文件用的函数？
 
@@ -255,20 +331,37 @@ eg：select '一句话木马' into dumpfile 'd:\\wwwroot\baidu.com\nvhack.php';
 - 防止命令执行：disable_functions，禁止了disable_functions=phpinfo,exec,passthru,shell_exec,system,proc_open,popen,curl_exec,curl_multi_exec,parse_ini_file,show_source，但是可以用dl扩展执行命令或者ImageMagick漏洞 https://www.waitalone.cn/imagemagic-bypass-disable_function.html
 - open_basedir: 将用户可操作的文件限制在某目录下
 
-## SQL注入防护方法？
-从不同角度切入：
 
-**1. 传入的字符**
-   - 对输入的特殊字符(如, () * & % # 等等)进行Escape转义或过滤、替换、删除等处理
-     - escape() 会对字符串中除了ASCII字母、数字和特定符号外，进行转义编码，编码成字符的16进行格式值，当该值小于等于0xFF时,用一个2位转移序列: %xx 表示. 大于的话则使用4位序列:%uxxxx 表示。
-   - 输入内容的数据类型必须确定，要么数字型，要么字符型 
+
+## 不同数据库获取数据信息的过程
+  **1.mysql数据库**
+  - 获取数据库  
+    - select database()
+    - show databases
+  - 获取数据表  
+    - select group_concat(table_name) from information_schema.tables where table_schema='库名'
+    - 当information被过滤，Mysql 5.6以上版本，还存在两张表 innodb_table_stats和innodb_index_stats
+      - select group_concat(table_name) from mysql.innodb_table_stats/innodb_index_stats where database_name=database();
+  - 获取列名
+    - select group_concat(column_name) from information_schema.columns where table_name='库名'
   
-**2. 查询操作本身**
-   - 使用安全的API，即所有查询语句使用标准化的数据库查询语句API接口，设定语句的参数进行过滤一些非法的字符，防止用户输入恶意字符传入数据库中执行sql语句。
+  **2.SQL Server**
+  - 获取数据库名
+    - SELECT Name FROM Master.SysDatabases ORDER BY Name
+  - 获取数据表  
+    - SELECT Name FROM DatabaseName.SysObjects Where XType='U' ORDER BY Name 
+    - (XType='U' 表示所有用户表)
+    - (XType='S' 表示所有系统表)
+  - 获取列名
+    - SELECT Name FROM SysColumns WHERE id=Object_Id('TableName')
   
-**3. 数据库本身**
-   - 对用户的操作权限进行安全限制，普通用户只给普通权限，管理员后台的操作权限要放开，尽量减少对数据库的恶意攻击。
-   - 执行的错误信息不要返回到客户端显示，（如字符错误，数据库的报错信息）尽量减少泄露信息
+  **3.POSTSQL**
+  - 获取数据库名
+    -  SELECT datname FROM pg_database;
+  - 获取数据表  
+    -  SELECT tablename FROM pg_tables;   
+  - 获取列名
+    -  select column_name from information_schema.columns where table_name='表名'
 
 
 
