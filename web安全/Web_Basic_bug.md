@@ -217,6 +217,9 @@ select count(*),concat(/*payload*/,floor(rand(0)*2)) as x from user group by x;
     ExtractValue()和UpdateXml()类似，它们的第二个参数使用Xpath路径法表示的查找路径。这里如果Xpath格式语法书写错误的话，就会报错。利用concat函数将想要获得的数据库内容拼接到第二个参数中，报错时作为内容输出。
 
 ## 布尔型注入方式？使用的函数？
+原理：
+通过注入我们的恶意语句来得到使得服务器将我们的恶意语句（存在判断数据是否正确）带入到查询中，然后通过返回的页面来判断是否是正确的判断逻辑。
+
 1.如果页面既没有显示位,也没有报错提示的话,可以使用布尔注入.
 
 2.通过插入一些语句查看结果来判断是否存在布尔注入.
@@ -338,6 +341,7 @@ eg：select '一句话木马' into dumpfile 'd:\\wwwroot\baidu.com\nvhack.php';
   - 获取数据库  
     - select database()
     - show databases
+    - select schema_name from information_schema.schemata
   - 获取数据表  
     - select group_concat(table_name) from information_schema.tables where table_schema='库名'
     - 当information被过滤，Mysql 5.6以上版本，还存在两张表 innodb_table_stats和innodb_index_stats
@@ -373,20 +377,35 @@ eg：select '一句话木马' into dumpfile 'd:\\wwwroot\baidu.com\nvhack.php';
 
 因为浏览器无法区分脚本是被恶意注入的还是正常的内容，它都会执行，况且 HTML 非常灵活，可以在任何时候对它进行修改。
 
+XSS漏洞的核心就是，网页执行了构造的恶意脚本。至于如何让网页执行，就是XSS漏洞的挖掘点。网页的内容一般都是由后端服务器发送过来，一般来说后端服务器接收前端请求，执行一些操作，再返回数据到前端进行展示。
+
+返回的数据有两种来源：
+
+第一种：前端发送过来的，后端进行了一些操作，再发回前端（可能增加、减少数据）
+--》这种情况就有可能产生**反射型XSS**
+
+第二种：与数据库交互，从数据库中读取数据到前端显示。
+--》这种情况就有可能产生**存储型XSS**（前提是已经将恶意payload写入数据库）
+
+因此对于XSS漏洞的防护就可以从两个角度进行：
+- 对输入进行过滤（）
+- 对输出进行转义
+
 ## 主要类型以及原理？
 - 反射型
   - 顾名思义，恶意 JavaScript 脚本属于用户发送给网站请求中的一部分，随后网站又将这部分返回给用户，恶意脚本在页面中被执行。一般发生在前后端一体的应用中，服务端逻辑会改变最终的网页代码。
     eg: ?input=<script>alert(1)</script>
   - <img src="images/image-20210304212336102.png" alt="image-20210304212336102" width="50%;" />
 
-
-
 - DOM型
   - 目前更流行前后端分离的项目，反射型 XSS 无用武之地。 但这种攻击不需要经过服务器，我们知道，网页本身的 JavaScript 也是可以改变 HTML 的，黑客正是利用这一点来实现插入恶意脚本。
   - <img src="images/image-20210304212357239.png" alt="image-20210304212357239" width="50%;" />
+
+
 - 存储型
   - 又叫持久型 XSS，顾名思义，黑客将恶意 JavaScript 脚本长期保存在服务端数据库中，用户一旦访问相关页面数据，恶意脚本就会被执行。常见于搜索、微博、社区贴吧评论等。
   - <img src="images/image-20210304212425402.png" alt="image-20210304212425402" width="50%;" />
+
 
 ## XSS危害
 
@@ -489,7 +508,11 @@ eg：select '一句话木马' into dumpfile 'd:\\wwwroot\baidu.com\nvhack.php';
 自动化探测工具：CSRFTester和burpsuite的CSRF POC
 
 1. **HTTP referer头**
-   1. referer字段记录http请求的原地址，如伪造用户发出请求的恶意网站的地址，服务端判断Referer值是否与服务器的域名信息有关，不相关时不执行操作。
+   1. referer字段**记录http请求的原地址**（实际上就是告诉服务器，用户在访问当前资源之前的位置，可用于跟踪用户），如伪造用户发出请求的恶意网站的地址，服务端判断Referer值是否与服务器的域名信息有关，不相关时不执行操作。[HTTP Referer教程](http://www.ruanyifeng.com/blog/2019/06/http-referer.html)
+   >有三种场景会发送Referer字段
+   (1)用户点击网页上的链接
+   (2)用户发送表单
+   (3)网页加载静态资源，比如加载图片、脚本、样本（这样可以防止一些别的网站显示自己网站的图片等资源）
    2. referer由浏览器产生，但可利用浏览器自身的一些安全问题，来修改该字段值
    3. 绕过：
       1. 当Referer为空的条件：利用ftp:// http:// https:// file:// javascript:  data:
