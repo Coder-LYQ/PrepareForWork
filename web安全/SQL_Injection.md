@@ -84,6 +84,10 @@
    >$ mysqli=new mysqli();
    >
    >$ mysqli->prepare($sql);
+   >
+   >预编译特殊例子：
+   >
+   >`select * from user where name like '%%%';`%在mysql中是关键字，会使like条件失效，查询出所有的用户信息
 
   <img src="images/preparedStatement.png" width="70%">
   
