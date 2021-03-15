@@ -94,26 +94,18 @@ HTTP协议规定了上传资源的时候在Header中加上一项文件的MIMETYP
 
 **Apache解析漏洞：**
 
-Apache 解析文件的规则是从右到左开始判断解析,如果后缀名为不可识别文件解析,就再往左判断。比如test.php.owf.rar “.owf”和”.rar” 这两种后缀是apache不可识别解析,apache就会把wooyun.php.owf.rar解析成php。
-
-若一个文件名abc.x1.x2.x3，Apache会从x3开始解析，如果x3不是一个能解析的扩展名，就往前解析x2以此往复，直到能遇到一个能解析的文件名为止。
+- 从右向左解析文件后缀名，直至解析到可识别的后缀。
+  - 若一个文件名abc.x1.x2.x3，Apache会从x3开始解析，如果x3不是一个能解析的扩展名，就往前解析x2以此往复，直到能遇到一个能解析的文件名为止。
 
 **IIS解析漏洞：**
-在test.asp/ jkl , IIS 的某些版本中会直接当成asp来解析; test.asp;jkl ,IIS某些版本也会按照asp 来解析；任意文件名/任意文件名.php，IIS 某些版本会直接当php来解析。
+- 目录解析：如果任意目录名包含 .asp 字符串，那么这个目录下的所有文件 都会按照 asp 去解析
+- 后缀解析：/xx.asp;.jpg /xx.asp:.jpg(此处需抓包修改文件名) 即asp文件后面添加; : ，在实际解析时仍会当作asp文件执行
+- 只要对任意文件名在url后面追加上 字符串 / 任意文件名.php 就会按照php去解析。（IIS7.0）
+  - 例如，上传test.jpg，然后访问test.jpg/.php或test.jpg/abc.php当前目录下就会生成一句话木马 shell.php
 
-IIS6.0 在解析 asp 时有两个解析漏洞，一个是如果任意目录名包含 .asp 字符串，那么这个目录下的所有文件 都会按照 asp 去解析，另一个是文件名中含有 asp; 就会优先当作 asp 来解析。
-
-IIS7.0/7.5 对php解析有所类似于 Nginx 的解析漏洞。只要对任意文件名在url后面追加上 字符串 / 任意文件名.php 就会按照php去解析。
-例如，上传test.jpg，然后访问test.jpg/.php或test.jpg/abc.php当前目录下就会生成一句话木马 shell.php
 
 **Nginx解析漏洞：**
-
-将shell语句，如<?PHP fputs(fopen('shell.php','w'),'<?php eval($_POST[cmd])?>’);?>
-
-写在文本xx.txt中(或者shell语句直接写一句话木马，用菜刀、cknife等直连，只是容易被查杀），然后用命令将shell语句附加在正常图片xx.jpg后copy xx.jpg/b + xx.txt/a test.jpg
-
-上传test.jpg，然后访问test.jpg/.php或test.jpg/abc.php当前目录下就会生成一句话木马 shell.php 。
-
+- www.xxx.com/test.jpg/test.php 会把test.jpg当成php解析
 
 ## 防御
 **系统运行时的防御：**
