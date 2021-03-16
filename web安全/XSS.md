@@ -147,6 +147,8 @@ post提交的内容是恶意内容，value值。
   if (isset($_GET['url'])){
     $url .= htmlspecialchars($_GET['url'],ENT_QUOTES);
   }
+  
+  <a href="<?php echo $url;?>">www.google.com</a>
 
   ```
 
@@ -168,6 +170,19 @@ post提交的内容是恶意内容，value值。
       return preg_replace_callback('/[^-\.0-9a-zA-Z]+/u','unicode_escape',$input);
   }
 
+  <script type="text/javascript">
+    function init() {}
+
+    // 005-输出点在js中,构造闭合，即可，payload:xx';alert(1);//
+    var echoxy = '<?php echo $name;?>';
+    //    alert(echoxy);
+    if (echoxy === '>中国'){
+        alert("比较成功,你的编码杠杠的~");
+
+    }
+
+
+</script>
   
   ```
 
