@@ -172,7 +172,6 @@ post提交的内容是恶意内容，value值。
 
   <script type="text/javascript">
     function init() {}
-
     // 005-输出点在js中,构造闭合，即可，payload:xx';alert(1);//
     var echoxy = '<?php echo $name;?>';
     //    alert(echoxy);
@@ -180,9 +179,7 @@ post提交的内容是恶意内容，value值。
         alert("比较成功,你的编码杠杠的~");
 
     }
-
-
-</script>
+  </script>
   
   ```
 
