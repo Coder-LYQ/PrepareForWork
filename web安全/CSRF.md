@@ -32,16 +32,45 @@
 
 * 由于session id是正确的,所以银行会判断操作是由本人发起的,执行转账操作.
 
+- get类型实例
+
+`![](https://awps-assets.meituan.net/mit-x/blog-images-bundle-2018b/ff0cdbee.example/withdraw?amount=10000&for=hacker)`
+受害者访问含有该img页面时就会自动向该连接发送请求
+
+- post类型实例
+
+利用自动提交的表单，模拟用户的post请求
+```html
+ <form action="http://bank.example/withdraw" method=POST>
+    <input type="hidden" name="account" value="xiaoming" />
+    <input type="hidden" name="amount" value="10000" />
+    <input type="hidden" name="for" value="hacker" />
+</form>
+<script> document.forms[0].submit(); </script> 
+```
+
 ## 防御方式
 自动化探测工具：CSRFTester和burpsuite的CSRF POC
+
+防御策略思路：
+- 阻止不明外域的访问
+  - 同源检测（利用origin和referer头）
+  - Samesite Cookie
+- 提交时要求附加本域才能获取的信息
+  - CSRF Token
+  - 双重Cookie验证
 
 1. **HTTP referer头**
    1. referer字段**记录http请求的原地址**（实际上就是告诉服务器，用户在访问当前资源之前的位置，可用于跟踪用户），如伪造用户发出请求的恶意网站的地址，服务端判断Referer值是否与服务器的域名信息有关，不相关时不执行操作。[HTTP Referer教程](http://www.ruanyifeng.com/blog/2019/06/http-referer.html)
    >有三种场景会发送Referer字段
-   (1)用户点击网页上的链接
-   (2)用户发送表单
-   (3)网页加载静态资源，比如加载图片、脚本、样本（这样可以防止一些别的网站显示自己网站的图片等资源）
-   2. referer由浏览器产生，但可利用浏览器自身的一些安全问题，来修改该字段值
+  
+   >(1)用户点击网页上的链接
+   >
+   >(2)用户发送表单
+   >
+   >(3)网页加载静态资源，比如加载图片、脚本、样本（这样可以防止一些别的网站显示自己网站的图片等资源）
+
+   2. referer**由浏览器产生**，但可利用浏览器自身的一些安全问题，来修改该字段值
    3. 绕过：
       1. 当Referer为空的条件：利用ftp:// http:// https:// file:// javascript:  data:
          1. 利用data：协议
@@ -53,14 +82,21 @@
          2. https://www.ibm.com/ibmweb/myibm/profile/profile-edit.jsp--》http://my_website/www.ibm.com/ibmweb/myibm/profile/profile-edit.jsp.php
 2. **设置Token**
    1. 使用流程：服务器生成Token，并输出到页面中--》页面提交的请求携带这个Token--》服务端验证Token是否正确。
+      1. 在分布式集群中，CSRF token存储在Redis之类的公共存储空间中
+      2. 或者采用某种策略去计算，验证时再次计算即可。UserID+时间戳+随机数 进行加密 
    2. 在网站表单中添加随机Token，服务端需验证Token值来判断请求是否合法。服务端按照一定方法生成或者完全随机生成Token，传到前端的表单中。
    3. 攻击者不知道Token生成的规则，或者无法利用js获取其他域的token值（同源策略）
    4. 在burpsuite中需要repeater时，如何获取token？使用bp宏自动获取token，保障session不过期。使用bp宏获取Token
    5. 绕过：
-3. **HTTP自定义头**
-4. **二次验证**
+3. **双重cookie**
+   
+   利用攻击者无法获取cookie的特点，要求在请求url中也添加cookie，这样后端在验证时，检查url中的cookie是否与请求头中的cookie字段值一致
+
+
+4. **HTTP自定义头**
+5. **二次验证**
    1. 执行操作时弹框提示用户确定执行操作
-5. **验证码防御**
+6. **验证码防御**
    1. 通过验证码强制用户与应用程序交互才能完成操作
 
 ## 产生的危害
@@ -129,3 +165,8 @@ $.ajaxSetup({
             }
         });
 ```
+
+
+参考链接：
+
+- [如何防止CSRF攻击？](https://tech.meituan.com/2018/10/11/fe-security-csrf.html)
