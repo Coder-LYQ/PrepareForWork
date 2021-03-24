@@ -329,7 +329,7 @@ mysqli_multi_query用于执行一个SQL语句或多个由分号分隔的SQL语�
 
 
 ## **sql注入写文件用的函数？
-suctf-2018 Multi Sql可练习
+**suctf-2018 Multi Sql**可练习
 
 1.**union select写入**
 
