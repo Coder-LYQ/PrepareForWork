@@ -34,14 +34,15 @@
 
 - get类型实例
 
-`![](https://awps-assets.meituan.net/mit-x/blog-images-bundle-2018b/ff0cdbee.example/withdraw?amount=10000&for=hacker)`
+`![恶意图片](https://awps-assets.meituan.net/mit-x/blog-images-bundle-2018b/ff0cdbee.example/withdraw?amount=10000&for=hacker)`
+
 受害者访问含有该img页面时就会自动向该连接发送请求
 
 - post类型实例
 
 利用自动提交的表单，模拟用户的post请求
 ```html
- <form action="http://bank.example/withdraw" method=POST>
+<form action="http://bank.example/withdraw" method=POST>
     <input type="hidden" name="account" value="xiaoming" />
     <input type="hidden" name="amount" value="10000" />
     <input type="hidden" name="for" value="hacker" />

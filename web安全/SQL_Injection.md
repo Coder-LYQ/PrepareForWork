@@ -389,7 +389,7 @@ set global general_log=off;                             #关闭general log模式
 ## **sql注入写shell的条件？(利用sql注入拿到webshell)
 - **secure_file_priv 支持数据导入导出**
   - 如果secure_file_priv=NULL，MySQL服务会禁止导入和导出操作。
-  - 通过命令查看secure-file-priv`的当前值，确认是否允许导入导出以及到处文件路径。
+  - 通过命令查看secure-file-priv`的当前值，确认是否允许导入导出以及导出文件路径。
   - show variables like '%secure_file_priv%';
   - select count(file_priv) from mysql.user
 - 当前数据库用户权限，用户拥有FILE权限，即在写入文件的路径中有写入权限
