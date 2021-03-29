@@ -1,5 +1,6 @@
 - [SQL注入成因？(!!)](#sql注入成因)
 - [SQL注入防护方法？ (!!)](#sql注入防护方法-)
+- [SQL注入存在的地方](#sql注入存在的地方)
 - [SQL注入如何判断(!!)](#sql注入如何判断)
 - [SQL注入绕过技巧(!!)](#sql注入绕过技巧)
 - [SQL注入主要类型？](#sql注入主要类型)
@@ -16,6 +17,7 @@
 - [如何判断不同的数据库](#如何判断不同的数据库)
 - [不同数据库获取数据信息的过程](#不同数据库获取数据信息的过程)
 - [mysql 5.0以上和以下区别](#mysql-50以上和以下区别)
+- [参考链接：](#参考链接)
 
 
 ## SQL注入成因？(!!)
@@ -98,6 +100,21 @@
    - 对用户的操作权限进行安全限制，普通用户只给普通权限，管理员后台的操作权限要放开，尽量减少对数据库的恶意攻击。
    - 执行的错误信息不要返回到客户端显示，（如字符错误，数据库的报错信息）尽量减少泄露信息
 
+## SQL注入存在的地方
+1. **用户输入**
+   
+   用户输入的任何与后端数据库产生交互的内容，都有可能产生SQL注入。
+   可以拦截GET或POST请求，修改其中的参数内容来实现恶意代码注入。
+
+2. **HTTP请求头**
+
+   服务器端可能会保存用户的IP及User-Agent等信息，此时，攻击者可以在X-Forwarded-For 或UA等请求头字段中构造语句进行SQL注入
+
+3. **二阶注入**
+  
+   攻击者在HTTP请求中提交恶意输入，服务端将恶意输入保存在数据库中，攻击者紧接着提交第二次HTTP请求。为处理第二次请求，服务端需要查找数据库，触发了之前存储的恶意输入，并将结果返回给攻击者。攻击者需要通过两次独立请求才可以实现SOL注入的目的，这种攻击方式因此得名二阶注入。
+
+
 ## SQL注入如何判断(!!)
   单条件查询：select * from table where id=?
   多条件查询：select * from table where id1=? and id2=?
@@ -141,31 +158,31 @@
 - 只过滤了一次时
   - union => ununionion
 - 相同功能替换
-  - 截取字符串
+  - **截取字符串**
     - select mid(string,1,1)
     - select substr(string from 1 for 1)
     - select replace(LPAD(string,1,1),LPAD(string,1-1,1),"")  # 读取string的第一位
     - select replace(LPAD(string,2,1),LPAD(string,2-1,1),"")  # 读取string的第二位
     > LPAD(str,len,padstr) 返回字符串str，用padstr左填充至len字符长度
     ![](images/mysql_LPAD.png)
-  - 逗号过滤
+  - **逗号过滤**
     - case when then else 代替if
     - union select 1,2,3-->union select * from (select 1)a join (select 2)b join (select 3)c
     - limit 2,1 -->limit 1 offset 2
-  - 比较表达式过滤(=<>)
+  - **比较表达式过滤(=<>)**
     - 利用**strcmp**  `if(abs(strcmp((ascii(mid(user()from(1)for(2)))),114))-1,1,0)`
     - 利用**find_in_set**  `select find_in_set(ord(mid(user() from 1 for 1)),114)`
     - 利用**regexp**  `select ord('r') regexp 115`;
     - `least(ord('r'),115)`  返回N个数中最小的
     - `greatest(ord('r'),113)`  返回N个数中最大的
     - `expr between n and m`  当expr值大于n小于m时返回1，否则返回0
-  - 函数替换
+  - **函数替换**
     - substring / mid / sub
     - ascii / hex / bin
     - benchmark / sleep
-  - 变量替换
+  - **变量替换**
     - user() / @@user
-  - 符号和关键字
+  - **符号和关键字**
     - and / &
     - or / |
 - HTTP参数
@@ -264,6 +281,8 @@ select count(*),concat(/*payload*/,floor(rand(0)*2)) as x from user group by x;
   - 当Condition为TRUE时，返回A；当Condition为FALSE时，返回B。
   - eg：if(ascii(substr(“hello”, 1, 1))=104, sleep(5), 1)
   - Condition为常用上面的几个函数
+
+- sleep和benchmark函数
 
 ## 堆叠注入？
 
@@ -434,3 +453,8 @@ set global general_log=off;                             #关闭general log模式
 - 在Mysql5.0以上的版本中加入了一个information_schema这个系统表，这个系统表中包含了该数据库的所有数据库名、表名、列表，可以通过SQL注入来拿到用户的账号和口令，而Mysql5.0以下的只能暴力跑表名；
 - 5.0 以下是多用户单操作，5.0 以上是多用户多操作。
 
+
+## 参考链接：
+- [SQL注入绕过技巧](https://www.cnblogs.com/Vinson404/p/7253255.html)
+- [深入理解SQL盲注](https://www.anquanke.com/post/id/170626)
+- [SQL盲注的简单分析](https://xz.aliyun.com/t/6595#toc-1)
