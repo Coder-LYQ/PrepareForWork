@@ -57,6 +57,7 @@
 - 阻止不明外域的访问
   - 同源检测（利用origin和referer头）
   - Samesite Cookie
+    - Strict\Lax\None
 - 提交时要求附加本域才能获取的信息
   - CSRF Token
   - 双重Cookie验证
