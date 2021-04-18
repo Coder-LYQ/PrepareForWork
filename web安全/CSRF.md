@@ -89,7 +89,9 @@
    2. 在网站表单中添加随机Token，服务端需验证Token值来判断请求是否合法。服务端按照一定方法生成或者完全随机生成Token，传到前端的表单中。
    3. 攻击者不知道Token生成的规则，或者无法利用js获取其他域的token值（同源策略）
    4. 在burpsuite中需要repeater时，如何获取token？使用bp宏自动获取token，保障session不过期。使用bp宏获取Token
-   5. 绕过：
+
+**比较而言，token的安全性高于referer。因为不是任何服务器都可以获取referer**
+
 3. **双重cookie**
    
    利用攻击者无法获取cookie的特点，要求在请求url中也添加cookie，这样后端在验证时，检查url中的cookie是否与请求头中的cookie字段值一致
