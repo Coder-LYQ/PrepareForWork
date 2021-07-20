@@ -132,7 +132,8 @@ SSRF(Server-Side Request Forgery，服务端请求伪造攻击)。
 
 ## Gopher协议的应用
 ### 协议内容
-**协议格式：**gopher://IP:port/_{TCP/IP数据流}（注意有_ 作为连接字符，可使用其他任意字符作为连接符）
+**协议格式：**
+gopher://IP:port/_{TCP/IP数据流}（注意有_ 作为连接字符，可使用其他任意字符作为连接符）
 
 **gopher协议的实现：**
 
