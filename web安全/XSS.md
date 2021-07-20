@@ -22,7 +22,7 @@ XSS漏洞的核心就是，网页执行了构造的恶意脚本。至于如何�
 --》这种情况就有可能产生**存储型XSS**（前提是已经将恶意payload写入数据库）
 
 因此对于XSS漏洞的防护就可以从两个角度进行：
-- 对输入进行过滤（）
+- 对输入进行过滤
 - 对输出进行转义
 
 ## 主要类型以及原理？
@@ -54,6 +54,7 @@ XSS漏洞的核心就是，网页执行了构造的恶意脚本。至于如何�
 ## 利用XSS进行攻击活动
 攻击payload的制作分两种类型：
 - **Get型 ** 
+  
   构造恶意链接中带有参数
 
 >eg:`http://**.**.**/pikachu/vul/xss/xss_reflected_get.php?message=test&submit=submit`
@@ -156,7 +157,8 @@ post提交的内容是恶意内容，value值。
 
   输出内容在一段js代码中
   -->转义函数:所有的字符串,除字母,数字,.号,-号外的其他全部进行转义为unicode(utf-8是unicode的一种实现),unicode可以在js中可以被正常解析使用,所有的转义操作在后台进行后输出到前台。
-    注意：js本身不解析html实体字符
+  
+  注意：js本身不解析html实体字符
   
   ```php
   //转换字符的编码
@@ -216,13 +218,12 @@ post提交的内容是恶意内容，value值。
 
   	* < --》&lt
 
-  	* > --》&gt
+  	* \> --》&gt
 
   * htmlentities()：把特殊字符转换成HTML实体
-  
-  	* '  "  &
+    * '  "  &
   * strip_tags()：自动去掉字符中的标签
-      	* eg:<script>alert(document.cookie);</script>--->alert(document.cookie)
+    * eg:<script>alert(document.cookie);</script>--->alert(document.cookie)
 
    使用这种方式，链接跳转也有可能出现XSS
 
