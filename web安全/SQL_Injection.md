@@ -413,7 +413,7 @@ set global general_log=off;                             #关闭general log模式
   - select count(file_priv) from mysql.user
 - 当前数据库用户权限，用户拥有FILE权限，即在写入文件的路径中有写入权限
 - web目录的物理路径(绝对路径)
-  - 一般可以通过phpinfo函数，测试页面，及报错信息，搜素引擎，目录爆破的方式来获取网站的真实物理路径，
+  - 一般可以通过phpinfo函数，测试页面，及报错信息，搜素引擎，目录爆破的方式来获取网站的真实物理路径
 
 ## 如何判断不同的数据库
 
